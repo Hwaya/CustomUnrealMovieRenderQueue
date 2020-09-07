@@ -547,13 +547,13 @@ void UMoviePipeline::RenderFrame()
 					LeftState.StereoState = EStereoState::Left;
 					LeftState.OutputState.StereoState = EStereoState::Left;
 					LeftState.FrameInfo.CurrViewLocation = FrameInfo.CurrViewLocation - FVector(0.f, TempDistanceOfEyes / 2.f, 0.f);
-					LeftState.FrameInfo.CurrViewRotation = FrameInfo.CurrViewRotation - FRotator(0.f, CorrectAngle, 0.f);
+					LeftState.FrameInfo.CurrViewRotation = FrameInfo.CurrViewRotation + FRotator(0.f, CorrectAngle, 0.f);
 
 					FMoviePipelineRenderPassMetrics RightState = SampleState;
 					RightState.StereoState = EStereoState::Right;
 					RightState.OutputState.StereoState = EStereoState::Right;
 					RightState.FrameInfo.CurrViewLocation = FrameInfo.CurrViewLocation + FVector(0.f, TempDistanceOfEyes / 2.f, 0.f);
-					RightState.FrameInfo.CurrViewRotation = FrameInfo.CurrViewRotation + FRotator(0.f, CorrectAngle, 0.f);					
+					RightState.FrameInfo.CurrViewRotation = FrameInfo.CurrViewRotation - FRotator(0.f, CorrectAngle, 0.f);					
 
 					if (!CurrentCameraCut.bHasEvaluatedMotionBlurFrame) // µ¤¾î¾º¿ì´Â°Å
 					{
@@ -567,10 +567,10 @@ void UMoviePipeline::RenderFrame()
 						float PrevCorrectAngle = 0.f;
 						PrevCorrectAngle = atan2(FrameInfo.PrevDistanceOfEyes / 2.f, FrameInfo.PrevDistanceOfFocus) * (180.f / PI);
 						LeftState.FrameInfo.PrevViewLocation = FrameInfo.PrevViewLocation - FVector(0.f, FrameInfo.PrevDistanceOfEyes / 2.f, 0.f);
-						LeftState.FrameInfo.PrevViewRotation = FrameInfo.PrevViewRotation - FRotator(0.f, PrevCorrectAngle, 0.f);
+						LeftState.FrameInfo.PrevViewRotation = FrameInfo.PrevViewRotation + FRotator(0.f, PrevCorrectAngle, 0.f);
 
 						RightState.FrameInfo.PrevViewLocation = FrameInfo.PrevViewLocation + FVector(0.f, FrameInfo.PrevDistanceOfEyes / 2.f, 0.f);
-						RightState.FrameInfo.PrevViewRotation = FrameInfo.PrevViewRotation + FRotator(0.f, PrevCorrectAngle, 0.f);
+						RightState.FrameInfo.PrevViewRotation = FrameInfo.PrevViewRotation - FRotator(0.f, PrevCorrectAngle, 0.f);
 					}
 					
 					// Now we can request that all of the engine passes render. The individual render passes should have already registered delegates
