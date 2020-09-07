@@ -578,11 +578,7 @@ void UMoviePipeline::RenderFrame()
 					for (TSharedPtr<MoviePipeline::FMoviePipelineEnginePass> EnginePass : ActiveRenderPasses)
 					{
 						EnginePass->RenderSample_GameThread(LeftState);
-						LeftReady = true;
-						FlushAsyncEngineSystems();
 						EnginePass->RenderSample_GameThread(RightState);
-						RightReady = true;
-						
 					}
 
 					// We give a chance for each individual render pass to render as well. This should be used if they're not trying to share data from an Engine Pass.
