@@ -1,0 +1,67 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Movie Render Pipeline",
+	"Description": "Advanced movie rendering pipeline for use in creating rendered cinematics or other multi-media creation.",
+	"Category": "Custom",
+	"CreatedBy": "Hwaya",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EngineVersion": "4.25.0",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "MovieRenderPipelineCore",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "MovieRenderPipelineSettings",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "MovieRenderPipelineRenderPasses",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "MovieRenderPipelineEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "MovieRenderStereoCamera",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"HTML5"
+			],
+			"AdditionalDependencies": [
+				"ImageWrapper",
+				"RenderCore",
+				"CinematicCamera",
+				"LevelSequence",
+				"MovieScene"
+			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "EditorScriptingUtilities",
+			"Enabled": true
+		},
+		{
+			"Name": "LevelSequenceEditor",
+			"Enabled": true,
+			"Optional": true
+		}
+	]
+}
