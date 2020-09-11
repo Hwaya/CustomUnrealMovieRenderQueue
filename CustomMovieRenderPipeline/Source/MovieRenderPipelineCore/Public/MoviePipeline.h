@@ -211,6 +211,7 @@ private:
 	* Should not be called if we're idling (debug), not initialized yet, or finalizing/exporting. 
 	*/
 	void RenderFrame();
+	void SubRenderFrame();
 
 	/** Allow any Settings to modify the (already duplicated) sequence. This allows inserting automatic pre-roll, etc. */
 	void ModifySequenceViaExtensions(ULevelSequence* InSequence);
@@ -328,11 +329,16 @@ public:
 	/** A list of engine passes which need to be run each frame to generate required content for all the movie render passes. */
 	TArray<TSharedPtr<MoviePipeline::FMoviePipelineEnginePass>> ActiveRenderPasses;
 
+	TArray<TSharedPtr<MoviePipeline::FMoviePipelineEnginePass>> SubActiveRenderPasses;
+
 	/** This gathers all of the produced data for an output frame (which may come in async many frames later) before passing them onto the Output Containers. */
 	TSharedPtr<FMoviePipelineOutputMerger, ESPMode::ThreadSafe> OutputBuilder;
 
 	/** A debug image sequence writer in the event they want to dump every sample generated on its own. */
 	IImageWriteQueue* ImageWriteQueue;
+
+	bool LeftReady;
+	bool RightReady;
 
 private:
 	/** Keep track of which job we're working on. This holds our Configuration + which shots we're supposed to render from it. */
@@ -371,8 +377,7 @@ private:
 	 *
 	 * 
 	 */
-	bool LeftReady;
-	bool RightReady;
+	
 };
 
 UCLASS()

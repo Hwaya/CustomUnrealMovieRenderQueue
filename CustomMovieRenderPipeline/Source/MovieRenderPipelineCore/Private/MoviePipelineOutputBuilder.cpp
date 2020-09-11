@@ -94,6 +94,7 @@ void FMoviePipelineOutputMerger::OnCompleteRenderPassDataAvailable_AnyThread(TUn
 		FMoviePipelineMergerOutputFrame FinalFrame;
 		ensureMsgf(PendingData.RemoveAndCopyValue(OutputFrame->FrameOutputState, FinalFrame), TEXT("Could not find frame in pending data, output will be skipped!"));
 		FinishedFrames.Enqueue(MoveTemp(FinalFrame));
+		
 	}
 }
 

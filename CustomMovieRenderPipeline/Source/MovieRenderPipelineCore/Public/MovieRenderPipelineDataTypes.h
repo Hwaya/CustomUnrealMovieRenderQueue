@@ -864,8 +864,13 @@ public:
 	 */
 	EStereoState StereoState;
 	float DistanceOfEyes;
+	bool bUseStereo;
 	bool bUseFocus;
 	float DistanceOfFocus;
+
+	bool EnginePassReady;
+	bool RenderPassReady;
+
 	/*
 	 *
 	 *

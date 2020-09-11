@@ -134,6 +134,7 @@ void UMoviePipeline::SetupRenderingPipelineForShot(FMoviePipelineShotInfo& Shot)
 	// There shouldn't be any render passes active from previous shots by now. The system should have flushed/stalled between
 	// them to complete using resources before switching passes.
 	check(ActiveRenderPasses.Num() == 0);
+	check(SubActiveRenderPasses.Num() == 0);
 
 	// Instantiate a new instance of every engine render pass we know how to use.
 	TArray<TSharedPtr<MoviePipeline::FMoviePipelineEnginePass>> RenderPasses;
@@ -451,6 +452,7 @@ void UMoviePipeline::RenderFrame()
 				 *	Stereo
 				 * 
 				 */
+				SampleState.bUseStereo = OutputSettings->bUseStereoMode;
 				
 				if (OutputSettings->bUseStereoMode)
 				{
@@ -460,7 +462,7 @@ void UMoviePipeline::RenderFrame()
 					TArray<FMovieSceneBinding> BoundObjects = TargetSequence->GetMovieScene()->GetBindings();
 					for (auto BindObject : BoundObjects)
 					{
-						if (BindObject.GetName().Contains(TEXT("StereoCamera")))
+						if (BindObject.GetName().Contains(TEXT("Stereo")))
 						{
 							UE_LOG(LogMovieRenderPipeline, Log, TEXT("%s"), *BindObject.GetName());
 							for (auto Track : BindObject.GetTracks())
@@ -528,12 +530,11 @@ void UMoviePipeline::RenderFrame()
 							}
 						}
 					}
-					/*float CorrectAngle = 0.f;
-					if (TempbUseFocus)
-					{
-						CorrectAngle = atan2(TempDistanceOfEyes / 2.f, TempDistanceOfFocus) * (180.f / PI);
-					}*/
-
+					/*
+					 *
+					 *
+					 * 
+					 */
 					SampleState.StereoState = EStereoState::Origin;
 					SampleState.DistanceOfEyes = TempDistanceOfEyes;
 					SampleState.bUseFocus = TempbUseFocus;
@@ -572,6 +573,18 @@ void UMoviePipeline::RenderFrame()
 						RightState.FrameInfo.PrevViewLocation = FrameInfo.PrevViewLocation + FVector(0.f, FrameInfo.PrevDistanceOfEyes / 2.f, 0.f);
 						RightState.FrameInfo.PrevViewRotation = FrameInfo.PrevViewRotation - FRotator(0.f, PrevCorrectAngle, 0.f);
 					}
+					FrameInfo.PrevDistanceOfEyes = TempDistanceOfEyes;
+					FrameInfo.PrevDistanceOfFocus = TempDistanceOfFocus;
+					FrameInfo.PrevbUseFocus = TempbUseFocus;
+
+					LeftState.EnginePassReady = false;
+					RightState.EnginePassReady = false;
+					/*
+					 *
+					 *
+					 * 
+					 */
+
 					
 					// Now we can request that all of the engine passes render. The individual render passes should have already registered delegates
 					// to receive data when the engine render pass is run, so no need to run them.
@@ -580,12 +593,34 @@ void UMoviePipeline::RenderFrame()
 						EnginePass->RenderSample_GameThread(LeftState);
 						EnginePass->RenderSample_GameThread(RightState);
 					}
+					/*while(!LeftState.EnginePassReady)
+					{
+						FPlatformProcess::Sleep(1.f);
+					}
+					if(LeftState.EnginePassReady)
+					{
+						for (TSharedPtr<MoviePipeline::FMoviePipelineEnginePass> EnginePass : ActiveRenderPasses)
+						{
+							EnginePass->RenderSample_GameThread(RightState);
+						}
+					}*/
 
 					// We give a chance for each individual render pass to render as well. This should be used if they're not trying to share data from an Engine Pass.
 					for (UMoviePipelineRenderPass* RenderPass : InputBuffers)
 					{
 						RenderPass->RenderSample_GameThread(LeftState);
 						RenderPass->RenderSample_GameThread(RightState);
+						
+						
+						
+						/*while (!LeftState.RenderPassReady)
+						{
+							FPlatformProcess::Sleep(1.f);
+						}
+						if (LeftState.RenderPassReady)
+						{
+							RenderPass->RenderSample_GameThread(RightState);
+						}*/
 					}
 					
 				}
@@ -608,7 +643,6 @@ void UMoviePipeline::RenderFrame()
 			}
 		}
 	}
-
 	// Re-enable the progress widget so when the player viewport is drawn to the preview window, it shows.
 	SetProgressWidgetVisible(true);
 }
@@ -661,8 +695,6 @@ void UMoviePipeline::FlushAsyncEngineSystems()
 	// This will register any new actors/components that were spawned during this frame. This needs 
 	// to be done before the shader compiler is flushed so that we compile shaders for any newly
 	// spawned component materials.
-
-	FPlatformProcess::Sleep(1.f);
 	
 	if (GetWorld())
 	{

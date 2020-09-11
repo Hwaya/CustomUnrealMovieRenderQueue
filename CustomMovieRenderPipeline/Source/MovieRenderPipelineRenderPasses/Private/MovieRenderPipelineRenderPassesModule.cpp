@@ -17,6 +17,7 @@ class FMovieRenderPipelineRenderPassesModule : public IModuleInterface
 	{
 		FMovieRenderPipelineCoreModule& CoreModule = FModuleManager::Get().LoadModuleChecked<FMovieRenderPipelineCoreModule>("MovieRenderPipelineCore");
 		DeferredEnginePassHandle = CoreModule.RegisterEngineRenderPass(FOnCreateEngineRenderPass::CreateStatic(&FMovieRenderPipelineRenderPassesModule::CreateDeferredEnginePass));
+		//SubDeferredEnginePassHandle = CoreModule.RegisterEngineRenderPass(FOnCreateEngineRenderPass::CreateStatic(&FMovieRenderPipelineRenderPassesModule::CreateDeferredEnginePass));
 	}
 
 	virtual void ShutdownModule() override
@@ -25,12 +26,15 @@ class FMovieRenderPipelineRenderPassesModule : public IModuleInterface
 		if (CoreModule)
 		{
 			CoreModule->UnregisterEngineRenderPass(DeferredEnginePassHandle);
+			//CoreModule->UnregisterEngineRenderPass(SubDeferredEnginePassHandle);
 		}
 
 	}
 private:
 
 	FDelegateHandle DeferredEnginePassHandle;
+
+	//FDelegateHandle SubDeferredEnginePassHandle;
 };
 
 IMPLEMENT_MODULE(FMovieRenderPipelineRenderPassesModule, MovieRenderPipelineRenderPasses);

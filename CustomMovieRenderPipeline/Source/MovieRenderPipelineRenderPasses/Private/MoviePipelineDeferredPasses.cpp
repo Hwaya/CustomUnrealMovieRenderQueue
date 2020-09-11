@@ -57,12 +57,19 @@ namespace MoviePipeline
 
 		GetPipeline()->SetPreviewTexture(TileRenderTarget.Get());
 
+		SubTileRenderTarget = NewObject<UTextureRenderTarget2D>(GetTransientPackage());
+		SubTileRenderTarget->ClearColor = FLinearColor(0.f, 0.f, 0.f, 0.f);
+		SubTileRenderTarget->AddToRoot();
+
+		SubTileRenderTarget->InitCustomFormat(InInitSettings.BackbufferResolution.X, InInitSettings.BackbufferResolution.Y, EPixelFormat::PF_FloatRGBA, false);
+
 
 		// Allocate 
 		ViewState.Allocate();
 
 		SurfaceQueue = MakeShared<FMoviePipelineSurfaceQueue>(InInitSettings.BackbufferResolution, EPixelFormat::PF_FloatRGBA, 3);
 		SubSurfaceQueue = MakeShared<FMoviePipelineSurfaceQueue>(InitSettings.BackbufferResolution, EPixelFormat::PF_FloatRGBA, 3);
+
 	}
 
 	void FDeferredRenderEnginePass::Teardown()
@@ -85,6 +92,10 @@ namespace MoviePipeline
 		if (TileRenderTarget.IsValid())
 		{
 			TileRenderTarget->RemoveFromRoot();
+		}
+		if(SubTileRenderTarget.IsValid())
+		{
+			SubTileRenderTarget->RemoveFromRoot();
 		}
 	}
 	
@@ -114,7 +125,9 @@ namespace MoviePipeline
 		}
 
 		FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
-			TileRenderTarget->GameThread_GetRenderTargetResource(),
+			InSampleState.StereoState == EStereoState::Left || InSampleState.StereoState == EStereoState::None ? 
+				TileRenderTarget->GameThread_GetRenderTargetResource() : 
+				SubTileRenderTarget->GameThread_GetRenderTargetResource(),
 			GetPipeline()->GetWorld()->Scene,
 			ShowFlags)
 			.SetWorldTimes(TimeData.WorldSeconds, TimeData.FrameDeltaTime, TimeData.WorldSeconds)
@@ -134,6 +147,7 @@ namespace MoviePipeline
 		View->bIsOfflineRender = true;
 		View->AntiAliasingMethod = InSampleState.AntiAliasingMethod;
 
+		
 		// Override the Motion Blur settings since these are controlled by the movie pipeline.
 		{
 			FFrameRate OutputFrameRate = GetPipeline()->GetPipelineMasterConfig()->GetEffectiveFrameRate(GetPipeline()->GetTargetSequence());
@@ -194,35 +208,66 @@ namespace MoviePipeline
 		// Wait for a surface to be available to write to. This will stall the game thread while the RHI/Render Thread catch up.
 		{
 			SCOPE_CYCLE_COUNTER(STAT_MoviePipeline_WaitForAvailableSurface);
-			if(InSampleState.StereoState == EStereoState::None || InSampleState.StereoState == EStereoState::Left)
+			//if(InSampleState.StereoState == EStereoState::None || InSampleState.StereoState == EStereoState::Left)
 			{
 				SurfaceQueue->BlockUntilAnyAvailable();
 			}
-			else if(InSampleState.StereoState == EStereoState::Right)
-			{
-				SubSurfaceQueue->BlockUntilAnyAvailable();
-			}
 		}
 
-		FCanvas Canvas = FCanvas(TileRenderTarget->GameThread_GetRenderTargetResource(), nullptr, GetPipeline()->GetWorld(), ERHIFeatureLevel::SM5, FCanvas::CDM_DeferDrawing, 1.0f);
+		bool* PipelineLeftReady = &GetPipeline()->LeftReady;
+		bool* PipelineRightReady = &GetPipeline()->RightReady;
+		
+		if(InSampleState.bUseStereo)
+		{
+			if (InSampleState.StereoState == EStereoState::Left && InSampleState.FrameIndex > 0)
+			{
+				while (!GetPipeline()->RightReady)
+				{
+					FPlatformProcess::Sleep(0.1f);
+				}
+				if(*PipelineLeftReady == true && *PipelineRightReady == true)
+				{
+					*PipelineLeftReady = false;
+					*PipelineRightReady = false;
+				}
+			}
+			else if (InSampleState.StereoState == EStereoState::Right)
+			{
+				while (!GetPipeline()->LeftReady)
+				{
+					FPlatformProcess::Sleep(0.1f);
+				}
+			}
+		}
+		
+		FCanvas Canvas = FCanvas(InSampleState.StereoState == EStereoState::Left || InSampleState.StereoState == EStereoState::None ?  TileRenderTarget->GameThread_GetRenderTargetResource() : SubTileRenderTarget->GameThread_GetRenderTargetResource(), nullptr, GetPipeline()->GetWorld(), ERHIFeatureLevel::SM5, FCanvas::CDM_DeferDrawing, 1.0f);
 		// SetupViewDelegate.Broadcast(ViewFamily, *View, InSampleState);
-
+		
 		// Draw the world into this View Family
 		GetRendererModule().BeginRenderingViewFamily(&Canvas, &ViewFamily);
 
 		// If this was just to contribute to the history buffer, no need to go any further.
 		if (InSampleState.bDiscardResult)
 		{
+			if (InSampleState.StereoState == EStereoState::Left)
+			{
+				*PipelineLeftReady = true;
+			}
+			else if (InSampleState.StereoState == EStereoState::Right)
+			{
+				*PipelineRightReady = true;
+			}
 			return;
 		}
 		
-		TSharedPtr<FMoviePipelineSurfaceQueue> LocalSurfaceQueue = InSampleState.StereoState == EStereoState::None || InSampleState.StereoState == EStereoState::Left ? SurfaceQueue : InSampleState.StereoState == EStereoState::Right ? SubSurfaceQueue : nullptr;
-
-		FRenderTarget* BackbufferRenderTarget = TileRenderTarget->GameThread_GetRenderTargetResource();
+		//TSharedPtr<FMoviePipelineSurfaceQueue> LocalSurfaceQueue = InSampleState.StereoState == EStereoState::None || InSampleState.StereoState == EStereoState::Left ? SurfaceQueue : InSampleState.StereoState == EStereoState::Right ? SubSurfaceQueue : nullptr;
+		TSharedPtr<FMoviePipelineSurfaceQueue> LocalSurfaceQueue = SurfaceQueue;
+		
+		FRenderTarget* BackbufferRenderTarget = InSampleState.StereoState == EStereoState::None || InSampleState.StereoState == EStereoState::Left ?  TileRenderTarget->GameThread_GetRenderTargetResource() : SubTileRenderTarget->GameThread_GetRenderTargetResource();
 		FMoviePipelineSampleReady& OnBackbufferReadDelegate = BackbufferReadyDelegate;
-
+		
 		ENQUEUE_RENDER_COMMAND(CanvasRenderTargetResolveCommand)(
-			[LocalSurfaceQueue, InSampleState, BackbufferRenderTarget, OnBackbufferReadDelegate](FRHICommandListImmediate& RHICmdList)
+			[PipelineLeftReady, PipelineRightReady, LocalSurfaceQueue, InSampleState, BackbufferRenderTarget, OnBackbufferReadDelegate](FRHICommandListImmediate& RHICmdList)
 		{
 				// If they are using tiles, we'll output some more fine-grained progress via logging since it freezes the UI for such a long time.
 				if (InSampleState.GetTileCount() > 1)
@@ -231,8 +276,17 @@ namespace MoviePipeline
 						InSampleState.OutputState.OutputFrameNumber, InSampleState.TemporalSampleIndex + 1, InSampleState.TemporalSampleCount,
 						InSampleState.GetTileIndex() + 1, InSampleState.GetTileCount(), InSampleState.SpatialSampleIndex + 1, InSampleState.SpatialSampleCount);
 				}
-
+				
 				LocalSurfaceQueue->OnRenderTargetReady_RenderThread(BackbufferRenderTarget->GetRenderTargetTexture(), InSampleState, OnBackbufferReadDelegate);
+
+				if(InSampleState.StereoState == EStereoState::Left)
+				{
+					*PipelineLeftReady = true;
+				}
+				else if(InSampleState.StereoState == EStereoState::Right)
+				{
+					*PipelineRightReady = true;
+				}
 		});
 	}
 
@@ -490,6 +544,9 @@ void UMoviePipelineDeferredPassBase::OnBackbufferSampleReady(TArray<FFloat16Colo
 	TUniquePtr<TImagePixelData<FFloat16Color>> PixelData = MakeUnique<TImagePixelData<FFloat16Color>>(InSampleState.BackbufferSize, TArray64<FFloat16Color>(MoveTemp(InPixelData)), FrameData);
 
 	AccumulateSample_RenderThread(MoveTemp(PixelData), FrameData, AccumulationParams);
+
+	//InSampleState.EnginePassReady = true;
+	//InSampleState.RenderPassReady = true;
 }
 
 void UMoviePipelineDeferredPassBase::OnSetupView(FSceneViewFamily& InViewFamily, FSceneView& InView, const FMoviePipelineRenderPassMetrics& InSampleState)
@@ -612,6 +669,7 @@ namespace MoviePipeline
 		{
 			// Send the data directly to the Output Builder and skip the accumulator.
 			InParams.OutputMerger->OnCompleteRenderPassDataAvailable_AnyThread(MoveTemp(InPixelData), InFrameData);
+			InFrameData->SampleState.EnginePassReady = true;
 			return;
 		}
 

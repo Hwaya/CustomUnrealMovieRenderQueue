@@ -76,5 +76,6 @@ namespace MoviePipeline
 		TSharedPtr<FMoviePipelineSurfaceQueue> SurfaceQueue;
 		TSharedPtr<FMoviePipelineSurfaceQueue> SubSurfaceQueue;
 		TWeakObjectPtr<UTextureRenderTarget2D> TileRenderTarget;
+		TWeakObjectPtr<UTextureRenderTarget2D> SubTileRenderTarget;
 	};
 }
